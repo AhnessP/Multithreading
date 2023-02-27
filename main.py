@@ -4,15 +4,16 @@ import random
 from queue import Queue
 
 RAM_size = 1000
-current_RAM = RAM_size
+free_RAM = RAM_size
 request_queue = Queue()
-num_requests = 2
+num_requests = 1
+num_threads = 3
 lock = threading.Lock()
 exit_flag = False
 
 
 def handle_request(request):
-    global current_RAM, request_queue
+    global free_RAM, request_queue
     thread_name, request_type, volume = request
     if request_type == 0:
         print(f"Received request from {thread_name} to allocate {volume} KB.")
@@ -23,27 +24,27 @@ def handle_request(request):
 
 
 def allocation_request(volume, thread_name):
-    global current_RAM
-    lock.acquire()  # Acquire the lock before accessing shared variable
-    if volume <= current_RAM:
-        current_RAM -= volume
+    global free_RAM
+    lock.acquire()
+    if volume <= free_RAM:
+        free_RAM -= volume
         print(f"Allocated {volume} KB of RAM to {thread_name}")
-        print(f"Current RAM is {current_RAM}")
+        print(f"{free_RAM} is available")
     else:
         print(f"Not enough RAM available to allocate {volume} KB to {thread_name}")
-        print(f"Current RAM is {current_RAM}")
-    lock.release()  # Release the lock after accessing shared variable
+        print(f"{free_RAM} is available")
+    lock.release()
 
 
 def utilization_request(volume, thread_name):
-    global current_RAM
-    lock.acquire()  # Acquire the lock before accessing shared variable
-    if volume <= RAM_size - current_RAM:
-        current_RAM += volume
+    global free_RAM
+    lock.acquire()
+    if volume <= RAM_size - free_RAM:
+        free_RAM += volume
         print(f"Utilized  {volume} KB of RAM by {thread_name}")
     else:
-        print(f"Not enough RAM taken to utilize {volume} KB by {thread_name}")
-    lock.release()  # Release the lock after accessing shared variable
+        print(f"Not enough RAM in use to utilize {volume} KB by {thread_name}")
+    lock.release()
 
 
 def simulate_requests():
@@ -67,7 +68,7 @@ def process_queue():
 
 
 def create_request_threads():
-    for i in range(num_requests):
+    for i in range(num_threads):
         request_thread = threading.Thread(target=simulate_requests)
         request_thread.start()
 
@@ -79,19 +80,15 @@ def create_queue_thread():
 
 
 def stop_threads():
-    global exit_flag  # use the global flag variable
-    exit_flag = True  # set the flag to signal the threads to exit
+    global exit_flag
+    exit_flag = True
     for thread in threading.enumerate():
         if thread != threading.current_thread():
             thread.join()
 
 
 if __name__ == "__main__":
-    # create and start the request threads
-    create_request_threads()
-    # create and start the queue thread
     queue_thread = create_queue_thread()
-    # wait for 5 seconds before stopping the threads
+    create_request_threads()
     time.sleep(2)
-    # stop the threads
     stop_threads()

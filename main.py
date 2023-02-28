@@ -6,7 +6,7 @@ from queue import Queue
 RAM_size = 1000
 free_RAM = RAM_size
 request_queue = Queue()
-num_requests = 1
+num_requests = 3
 num_threads = 3
 lock = threading.Lock()
 exit_flag = False
@@ -25,26 +25,24 @@ def handle_request(request):
 
 def allocation_request(volume, thread_name):
     global free_RAM
-    lock.acquire()
-    if volume <= free_RAM:
-        free_RAM -= volume
-        print(f"Allocated {volume} KB of RAM to {thread_name}")
-        print(f"{free_RAM} is available")
-    else:
-        print(f"Not enough RAM available to allocate {volume} KB to {thread_name}")
-        print(f"{free_RAM} is available")
-    lock.release()
+    with lock:
+        if volume <= free_RAM:
+            free_RAM -= volume
+            print(f"Allocated {volume} KB of RAM to {thread_name}")
+            print(f"{free_RAM} is available")
+        else:
+            print(f"Not enough RAM available to allocate {volume} KB to {thread_name}")
+            print(f"{free_RAM} is available")
 
 
 def utilization_request(volume, thread_name):
     global free_RAM
-    lock.acquire()
-    if volume <= RAM_size - free_RAM:
-        free_RAM += volume
-        print(f"Utilized  {volume} KB of RAM by {thread_name}")
-    else:
-        print(f"Not enough RAM in use to utilize {volume} KB by {thread_name}")
-    lock.release()
+    with lock:
+        if volume <= RAM_size - free_RAM:
+            free_RAM += volume
+            print(f"Utilized  {volume} KB of RAM by {thread_name}")
+        else:
+            print(f"Not enough RAM in use to utilize {volume} KB by {thread_name}")
 
 
 def simulate_requests():
@@ -53,14 +51,19 @@ def simulate_requests():
         request_type = random.choice([0, -1])
         volume = random.randint(1, 1024)
         request = (thread_name, request_type, volume)
-        request_queue.put(request)
+        with lock:
+            request_queue.put(request)
         time.sleep(random.uniform(0.1, 0.5))
 
 
 def process_queue():
     while not exit_flag:
-        if not request_queue.empty():
-            request = request_queue.get()
+        request = None
+        with lock:
+            if not request_queue.empty():
+                request = request_queue.get()
+
+        if request:
             handle_request(request)
             request_queue.task_done()
         else:
